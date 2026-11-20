@@ -6,11 +6,14 @@ import crypto from "node:crypto";
 
 /* ===== Valeurs de départ (utilisées seulement au tout premier lancement) ===== */
 const DEPART = {
-  membres: ["Dupont", "Martin", "Bernard", "Petit", "Durand"],
-  gestionnaire: "Moreau",
-  prixCafe: 0.5,
-  prixBoisson: 1.0,
+  membres: [
+    "Nicolas", "Jean-Philippe", "David", "Fabrice", "Christophe", "Laurent", "Anthony",
+    "Richard", "François-Xavier", "Matthieu", "Florent", "Damien", "Patrice",
+  ],
+  gestionnaire: "Benjamin",
+  prix: { cafe: 0.2, eau: 0.5, soft: 0.6 },
 };
+const PRODUITS = ["cafe", "eau", "soft"];
 // Mot de passe initial : variable d'environnement ADMIN_PASSWORD sur Netlify, sinon "popotte".
 const MDP_INITIAL = () => process.env.ADMIN_PASSWORD || "popotte";
 const DUREE_SESSION_MS = 30 * 60 * 1000; // une connexion gestionnaire dure 30 min
@@ -36,7 +39,7 @@ function donneesInitiales() {
       ...DEPART.membres.map((nom) => ({ id: uid(), nom, gestionnaire: false, actif: true })),
       { id: uid(), nom: DEPART.gestionnaire, gestionnaire: true, actif: true },
     ],
-    prix: { cafe: DEPART.prixCafe, boisson: DEPART.prixBoisson },
+    prix: { ...DEPART.prix },
     consos: [],
     paiements: [],
   };
@@ -142,7 +145,7 @@ const OPS_ADMIN = {
     m.actif = !m.actif;
   },
   prix(d, b) {
-    d.prix = { cafe: prixValide(b.cafe), boisson: prixValide(b.boisson) };
+    d.prix = Object.fromEntries(PRODUITS.map((k) => [k, prixValide(b[k])]));
   },
   restaurer(d, b) {
     const x = b.donnees;
@@ -167,13 +170,15 @@ export default async (req) => {
       return json(data);
     }
 
-    // Un membre ajoute un café ou une boisson. Prix et heure fixés par le serveur.
+    // Un membre ajoute un café, une eau ou un soft. Prix et heure fixés par le serveur.
     if (route === "conso" && req.method === "POST") {
-      if (!["cafe", "boisson"].includes(body.type)) throw new HttpError(400, "Type invalide.");
+      if (!PRODUITS.includes(body.type)) throw new HttpError(400, "Type invalide.");
       const { data, resultat } = await modifier(s, (d) => {
         const m = trouverMembre(d, body.membreId);
         if (!m.actif) throw new HttpError(400, "Membre désactivé.");
-        const c = { id: uid(), membreId: m.id, type: body.type, prix: d.prix[body.type], ts: Date.now() };
+        const prix = d.prix[body.type];
+        if (typeof prix !== "number") throw new HttpError(400, "Prix non défini pour ce produit.");
+        const c = { id: uid(), membreId: m.id, type: body.type, prix, ts: Date.now() };
         d.consos.push(c);
         return c;
       });
