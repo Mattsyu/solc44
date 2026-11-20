@@ -42,6 +42,7 @@ function donneesInitiales() {
     prix: { ...DEPART.prix },
     consos: [],
     paiements: [],
+    signalements: [], // paiements déclarés par les membres, en attente de confirmation
   };
 }
 
@@ -83,7 +84,10 @@ function jetonValide(jeton, auth) {
 // Lecture des données (créées au premier appel).
 async function lireDonnees(s) {
   const r = await s.getWithMetadata("data", { type: "json" });
-  if (r) return { data: r.data, etag: r.etag };
+  if (r) {
+    r.data.signalements ||= [];
+    return { data: r.data, etag: r.etag };
+  }
   const data = donneesInitiales();
   const res = await s.setJSON("data", data, { onlyIfNew: true });
   if (res.modified) return { data, etag: res.etag };
@@ -127,6 +131,17 @@ const OPS_ADMIN = {
     if (!(montant > 0) || montant > 10000) throw new HttpError(400, "Montant invalide.");
     d.paiements.push({ id: uid(), membreId: b.membreId, montant, ts: Date.now() });
   },
+  confirmerSignalement(d, b) {
+    const sg = d.signalements.find((x) => x.id === b.signalementId);
+    if (!sg) throw new HttpError(404, "Signalement introuvable (déjà traité ?).");
+    const montant = b.montant != null ? r2(Number(b.montant)) : sg.montant;
+    if (!(montant > 0) || montant > 10000) throw new HttpError(400, "Montant invalide.");
+    d.paiements.push({ id: uid(), membreId: sg.membreId, montant, ts: Date.now(), signale: true });
+    d.signalements = d.signalements.filter((x) => x.id !== sg.id);
+  },
+  refuserSignalement(d, b) {
+    d.signalements = d.signalements.filter((x) => x.id !== b.signalementId);
+  },
   annulerPaiement(d, b) {
     d.paiements = d.paiements.filter((p) => p.id !== b.paiementId);
   },
@@ -155,6 +170,7 @@ const OPS_ADMIN = {
     d.consos = x.consos;
     d.paiements = x.paiements;
     d.prix = x.prix;
+    d.signalements = Array.isArray(x.signalements) ? x.signalements : [];
   },
 };
 
@@ -192,6 +208,26 @@ export default async (req) => {
         if (!c) throw new HttpError(404, "Consommation introuvable.");
         if (Date.now() - c.ts > DELAI_ANNULATION_MS) throw new HttpError(400, "Trop tard pour annuler.");
         d.consos = d.consos.filter((x) => x.id !== c.id);
+      });
+      return json({ etat: data });
+    }
+
+    // Un membre signale qu'il a payé : le gestionnaire devra confirmer.
+    if (route === "signaler" && req.method === "POST") {
+      const montant = r2(Number(body.montant));
+      if (!(montant > 0) || montant > 10000) throw new HttpError(400, "Montant invalide.");
+      const { data } = await modifier(s, (d) => {
+        const m = trouverMembre(d, body.membreId);
+        d.signalements = d.signalements.filter((x) => x.membreId !== m.id); // un seul signalement en attente par membre
+        d.signalements.push({ id: uid(), membreId: m.id, montant, ts: Date.now() });
+      });
+      return json({ etat: data });
+    }
+
+    // Un membre annule son propre signalement tant qu'il n'est pas confirmé.
+    if (route === "annulerSignalement" && req.method === "POST") {
+      const { data } = await modifier(s, (d) => {
+        d.signalements = d.signalements.filter((x) => !(x.membreId === body.membreId && x.id === body.signalementId));
       });
       return json({ etat: data });
     }
