@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#3b2a20">
+<title>Popotte café</title>
+<style>
+:root{
+  --bg:#f6f1ea; --card:#fff; --ink:#2a1e17; --muted:#7a6a5e; --line:#e4d9cc;
+  --brand:#6b4226; --brand-ink:#fff; --cafe:#7b4a2a; --boisson:#1f6f8b;
+  --ok:#2e7d4f; --warn:#b3541e; --danger:#b42318;
+  --r:16px;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#17120f; --card:#231b16; --ink:#f3ebe3; --muted:#b3a497; --line:#3a2e26;
+    --brand:#c98a5a; --brand-ink:#1b120c; --cafe:#c98a5a; --boisson:#5bb6d6; --ok:#5cc58a; --warn:#e3925a; --danger:#ef6b5f; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;background:var(--brand);color:var(--brand-ink);position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:22px;letter-spacing:.3px}
+header .sub{font-size:13px;opacity:.85}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:12px 18px;background:var(--line);color:var(--ink)}
+button:active{transform:scale(.97)}
+button.primary{background:var(--brand);color:var(--brand-ink)}
+button.ghost{background:transparent;border:1px solid currentColor;color:inherit}
+button.ok{background:var(--ok);color:#fff}
+button.danger{background:var(--danger);color:#fff}
+button.small{padding:8px 12px;font-size:14px;border-radius:10px}
+input,select{font:inherit;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);width:100%}
+label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.member{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;text-align:left;display:flex;flex-direction:column;gap:6px;min-height:120px}
+.member .name{font-size:20px;font-weight:600}
+.member .tag{font-size:12px;color:var(--brand);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.member .due{font-size:26px;font-weight:700;margin-top:auto}
+.member .due.zero{color:var(--ok)}
+.member .meta{font-size:13px;color:var(--muted)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:16px}
+.panel h2{margin:0 0 12px;font-size:20px}
+.big-actions{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.big-actions button{padding:30px 10px;font-size:24px;font-weight:700;border-radius:20px;color:#fff;display:flex;flex-direction:column;align-items:center;gap:6px}
+.big-actions .cafe{background:var(--cafe)} .big-actions .boisson{background:var(--boisson)}
+.big-actions small{font-size:16px;font-weight:500;opacity:.9}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--bg);border-radius:12px;padding:14px}
+.stat .v{font-size:28px;font-weight:700}
+.stat .l{font-size:13px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
+th{font-size:13px;color:var(--muted);font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.spacer{flex:1}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tabs button.active{background:var(--brand);color:var(--brand-ink)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:14px 22px;border-radius:14px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+.toast.show{opacity:1}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal{background:var(--card);border-radius:var(--r);padding:22px;width:100%;max-width:420px}
+.modal h3{margin:0 0 8px}
+.hint{font-size:13px;color:var(--muted)}
+.pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:600}
+.pill.cafe{background:color-mix(in srgb,var(--cafe) 18%,transparent);color:var(--cafe)}
+.pill.boisson{background:color-mix(in srgb,var(--boisson) 18%,transparent);color:var(--boisson)}
+.pill.pay{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.hidden{display:none!important}
+@media print{
+  header,.no-print,.tabs{display:none!important}
+  body{background:#fff;color:#000}
+  .panel{border:0;padding:0}
+  main{padding:0}
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>☕ Popotte café</h1>
+    <div class="sub" id="hdrSub"></div>
+  </div>
+  <div class="row no-print">
+    <button class="ghost small" id="btnHome">Accueil</button>
+    <button class="ghost small" id="btnAdmin">Gestionnaire</button>
+  </div>
+</header>
+<main id="app"></main>
+<div class="toast" id="toast"></div>
+
+<script>
+/* Les données sont stockées sur Netlify (fonction /api + Netlify Blobs).
+   Les noms et prix de départ se règlent dans netlify/functions/api.mjs,
+   puis dans l'espace Gestionnaire. */
+
+const $ = s => document.querySelector(s);
+const app = $("#app");
+const euro = n => (Math.round(n*100)/100).toLocaleString("fr-FR",{style:"currency",currency:"EUR"});
+const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const monthKey = ts => { const d=new Date(ts); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); };
+const monthLabel = k => { const [y,m]=k.split("-"); return new Date(+y,+m-1,1).toLocaleDateString("fr-FR",{month:"long",year:"numeric"}); };
+const fmtDate = ts => new Date(ts).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+
+/* ---------- Échanges avec le serveur ---------- */
+let db = null, jeton = null, mdpParDefaut = false, occupe = false;
+async function api(chemin, corps){
+  const opts = { method: corps ? "POST" : "GET", headers: {} };
+  if (corps){ opts.headers["content-type"]="application/json"; opts.body=JSON.stringify(corps); }
+  if (jeton) opts.headers.authorization = "Bearer "+jeton;
+  let r;
+  try { r = await fetch("/api/"+chemin, opts); }
+  catch(e){ throw new Error("Pas de connexion réseau. Réessayez."); }
+  const d = await r.json().catch(()=>({}));
+  if (r.status===401 && jeton && chemin!=="login"){ jeton=null; adminOk=false; }
+  if (!r.ok) throw new Error(d.erreur || "Erreur "+r.status);
+  if (d.etat) db = d.etat;
+  return d;
+}
+// Exécute une action en évitant les doubles appuis, et affiche l'erreur éventuelle.
+async function action(fn){
+  if (occupe) return; occupe=true; document.body.style.cursor="progress";
+  try { await fn(); } catch(e){ toast(e.message); if(!adminOk && location.hash==="#admin") render(); }
+  finally { occupe=false; document.body.style.cursor=""; }
+}
+const admin = (op, data={}) => api("admin", {op, ...data});
+async function rafraichir(){ db = await api("etat"); }
+
+/* ---------- Calculs ---------- */
+const membre = id => db.membres.find(m=>m.id===id);
+function totalConso(id){ return db.consos.filter(c=>c.membreId===id).reduce((s,c)=>s+c.prix,0); }
+function totalPaye(id){ return db.paiements.filter(p=>p.membreId===id).reduce((s,p)=>s+p.montant,0); }
+function solde(id){ return Math.round((totalConso(id)-totalPaye(id))*100)/100; }
+function moisStats(id, mk){
+  const cs = db.consos.filter(c=>c.membreId===id && monthKey(c.ts)===mk);
+  const ps = db.paiements.filter(p=>p.membreId===id && monthKey(p.ts)===mk);
+  return {
+    cafes: cs.filter(c=>c.type==="cafe").length,
+    boissons: cs.filter(c=>c.type==="boisson").length,
+    montant: cs.reduce((s,c)=>s+c.prix,0),
+    paye: ps.reduce((s,p)=>s+p.montant,0)
+  };
+}
+
+/* ---------- UI utilitaires ---------- */
+let toastT;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2200); }
+function modal(html, onReady){
+  const bg=document.createElement("div"); bg.className="modal-bg";
+  bg.innerHTML=`<div class="modal">${html}</div>`;
+  bg.addEventListener("click",e=>{ if(e.target===bg) bg.remove(); });
+  document.body.appendChild(bg); onReady && onReady(bg, ()=>bg.remove());
+}
+function confirmBox(msg, onYes){
+  modal(`<h3>Confirmation</h3><p>${msg}</p><div class="row"><span class="spacer"></span><button data-n>Annuler</button><button class="primary" data-y>Confirmer</button></div>`,
+    (el,close)=>{ el.querySelector("[data-n]").onclick=close; el.querySelector("[data-y]").onclick=()=>{close();onYes();}; });
+}
+
+let adminOk=false, adminTab="soldes", adminMois=monthKey(Date.now()), idleT;
+function resetIdle(){ clearTimeout(idleT); idleT=setTimeout(()=>{ adminOk=false; jeton=null; if(location.hash!=="") go(""); }, 3*60*1000); }
+["click","touchstart","keydown"].forEach(ev=>document.addEventListener(ev,resetIdle,{passive:true}));
+
+function go(h){ if(location.hash.slice(1)===h) render(); else location.hash=h; }
+window.addEventListener("hashchange", render);
+$("#btnHome").onclick=()=>go("");
+$("#btnAdmin").onclick=()=>go("admin");
+
+// Rafraîchit l'écran toutes les 20 s (utile si quelqu'un consomme depuis un autre appareil).
+setInterval(async()=>{
+  if (occupe || document.hidden || document.querySelector(".modal-bg") || location.hash==="#admin" && !adminOk) return;
+  if (document.activeElement && ["INPUT","SELECT"].includes(document.activeElement.tagName)) return;
+  try { await rafraichir(); render(); } catch(_){}
+}, 20000);
+
+function render(){
+  if (!db) return;
+  const h=location.hash.slice(1);
+  $("#hdrSub").textContent = `Café ${euro(db.prix.cafe)} · Boisson ${euro(db.prix.boisson)}`;
+  if (h.startsWith("m/")) return renderMembre(h.slice(2));
+  if (h==="admin") return adminOk ? renderAdmin() : renderLogin();
+  adminOk=false; jeton=null;
+  renderHome();
+}
+
+/* ---------- Accueil ---------- */
+function renderHome(){
+  const ms = db.membres.filter(m=>m.actif).sort((a,b)=>a.nom.localeCompare(b.nom,"fr"));
+  app.innerHTML = `
+    <div class="row" style="margin-bottom:14px"><h2 style="margin:0">Touchez votre nom</h2></div>
+    <div class="grid">${ms.map(m=>{
+      const s=solde(m.id), mk=monthKey(Date.now()), st=moisStats(m.id,mk);
+      return `<button class="member" data-id="${m.id}">
+        ${m.gestionnaire?'<span class="tag">Gestionnaire</span>':''}
+        <span class="name">${esc(m.nom)}</span>
+        <span class="meta">Ce mois : ${st.cafes} café${st.cafes>1?"s":""} · ${st.boissons} boisson${st.boissons>1?"s":""}</span>
+        <span class="due ${s<=0?"zero":""}">${s<=0?(s<0?"Avance "+euro(-s):"À jour"):euro(s)}</span>
+      </button>`;}).join("")}
+    </div>`;
+  app.querySelectorAll(".member").forEach(b=>b.onclick=()=>go("m/"+b.dataset.id));
+}
+
+/* ---------- Compte membre ---------- */
+function renderMembre(id){
+  const m=membre(id); if(!m) return go("");
+  const s=solde(id), mk=monthKey(Date.now()), st=moisStats(id,mk);
+  const hist=[
+    ...db.consos.filter(c=>c.membreId===id).map(c=>({...c,k:"c"})),
+    ...db.paiements.filter(p=>p.membreId===id).map(p=>({...p,k:"p"}))
+  ].sort((a,b)=>b.ts-a.ts).slice(0,15);
+  const last = db.consos.filter(c=>c.membreId===id).sort((a,b)=>b.ts-a.ts)[0];
+  const annulable = last && Date.now()-last.ts < 10*60*1000;
+  app.innerHTML = `
+    <div class="panel">
+      <div class="row"><h2 style="margin:0">${esc(m.nom)}</h2><span class="spacer"></span><button class="small" id="back">← Retour</button></div>
+      <div class="big-actions">
+        <button class="cafe" id="addCafe">☕ + Café<small>${euro(db.prix.cafe)}</small></button>
+        <button class="boisson" id="addBoisson">🥤 + Boisson<small>${euro(db.prix.boisson)}</small></button>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="v" style="color:${s>0?"var(--warn)":"var(--ok)"}">${euro(Math.max(s,0))}</div><div class="l">${s<0?"Avance : "+euro(-s):"Reste à payer"}</div></div>
+        <div class="stat"><div class="v">${euro(st.montant)}</div><div class="l">Consommé en ${monthLabel(mk)}</div></div>
+        <div class="stat"><div class="v">${st.cafes}</div><div class="l">Cafés ce mois</div></div>
+        <div class="stat"><div class="v">${st.boissons}</div><div class="l">Boissons ce mois</div></div>
+        <div class="stat"><div class="v">${euro(totalConso(id))}</div><div class="l">Total consommé depuis le début</div></div>
+      </div>
+      ${annulable?`<div class="row" style="margin-top:14px"><button class="small" id="undo">↩ Annuler mon dernier ajout (${last.type==="cafe"?"café":"boisson"} de ${fmtDate(last.ts)})</button></div>`:""}
+    </div>
+    <div class="panel">
+      <h2>Derniers mouvements</h2>
+      ${hist.length?`<table><tbody>${hist.map(x=>`<tr><td>${fmtDate(x.ts)}</td><td>${x.k==="c"?`<span class="pill ${x.type}">${x.type==="cafe"?"Café":"Boisson"}</span>`:`<span class="pill pay">Paiement</span>`}</td><td class="num">${x.k==="c"?euro(x.prix):"− "+euro(x.montant)}</td></tr>`).join("")}</tbody></table>`:`<p class="hint">Aucun mouvement pour l'instant.</p>`}
+    </div>`;
+  $("#back").onclick=()=>go("");
+  const add=type=>action(async()=>{ await api("conso",{membreId:id,type}); toast((type==="cafe"?"☕ Café ajouté":"🥤 Boisson ajoutée")+" pour "+m.nom); renderMembre(id); });
+  $("#addCafe").onclick=()=>add("cafe");
+  $("#addBoisson").onclick=()=>add("boisson");
+  if(annulable) $("#undo").onclick=()=>action(async()=>{ await api("annuler",{membreId:id,consoId:last.id}); toast("Dernier ajout annulé"); renderMembre(id); });
+}
+
+/* ---------- Connexion gestionnaire ---------- */
+function renderLogin(){
+  app.innerHTML=`<div class="panel" style="max-width:420px;margin:40px auto">
+    <h2>Espace gestionnaire</h2>
+    <form id="f"><label for="pw">Mot de passe</label><input type="password" id="pw" autocomplete="current-password" autofocus>
+    <div class="row" style="margin-top:14px"><span class="spacer"></span><button class="primary">Se connecter</button></div></form>
+    <p class="hint hidden" id="defHint">Mot de passe par défaut : <b>popotte</b>. Changez-le dans l'onglet Réglages.</p>
+  </div>`;
+  api("info").then(d=>{ if(d.mdpParDefaut) $("#defHint")?.classList.remove("hidden"); }).catch(()=>{});
+  $("#f").onsubmit=e=>{ e.preventDefault(); action(async()=>{
+    try{
+      const d=await api("login",{motDePasse:$("#pw").value});
+      jeton=d.jeton; mdpParDefaut=d.mdpParDefaut; adminOk=true; resetIdle();
+      await rafraichir(); renderAdmin();
+    }catch(err){ $("#pw").value=""; throw err; }
+  }); };
+}
+
+/* ---------- Espace gestionnaire ---------- */
+function renderAdmin(){
+  const tabs=[["soldes","Paiements"],["mois","Récap mensuel"],["membres","Membres"],["reglages","Réglages"]];
+  app.innerHTML=`<div class="tabs no-print">${tabs.map(([k,l])=>`<button data-t="${k}" class="${adminTab===k?"active":""}">${l}</button>`).join("")}
+    <span class="spacer"></span><button class="small" id="logout">Se déconnecter</button></div>
+    ${mdpParDefaut?`<div class="panel no-print" style="border-color:var(--warn)"><b>Le mot de passe par défaut est encore actif.</b> Changez-le dans l'onglet Réglages.</div>`:""}
+    <div id="adm"></div>`;
+  app.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{adminTab=b.dataset.t;renderAdmin();});
+  $("#logout").onclick=()=>{adminOk=false;jeton=null;go("");};
+  ({soldes:admSoldes,mois:admMois,membres:admMembres,reglages:admReglages})[adminTab]();
+}
+const adminAction = (op, data, msg) => action(async()=>{ await admin(op,data); if(msg) toast(msg); render(); });
+
+function admSoldes(){
+  const ms=db.membres.filter(m=>m.actif||solde(m.id)!==0).sort((a,b)=>solde(b.id)-solde(a.id));
+  const tot=ms.reduce((s,m)=>s+Math.max(solde(m.id),0),0);
+  const recents=db.paiements.slice().sort((a,b)=>b.ts-a.ts).slice(0,10);
+  $("#adm").innerHTML=`<div class="panel"><div class="row"><h2 style="margin:0">Soldes et paiements</h2><span class="spacer"></span><b>Total à encaisser : ${euro(tot)}</b></div>
+    <table><thead><tr><th>Membre</th><th class="num">Consommé</th><th class="num">Payé</th><th class="num">Reste dû</th><th></th></tr></thead><tbody>
+    ${ms.map(m=>{const s=solde(m.id);return `<tr><td>${esc(m.nom)}${m.gestionnaire?' <span class="hint">(gest.)</span>':''}</td><td class="num">${euro(totalConso(m.id))}</td><td class="num">${euro(totalPaye(m.id))}</td>
+      <td class="num" style="font-weight:700;color:${s>0?"var(--warn)":"var(--ok)"}">${euro(s)}</td>
+      <td class="num"><button class="small ok" data-pay="${m.id}">Valider un paiement</button></td></tr>`;}).join("")}
+    </tbody></table></div>
+    <div class="panel"><h2>Derniers paiements validés</h2>${recents.length?`<table><tbody>${recents.map(p=>`<tr><td>${fmtDate(p.ts)}</td><td>${esc(membre(p.membreId)?.nom||"?")}</td><td class="num">${euro(p.montant)}</td><td class="num"><button class="small" data-delp="${p.id}">Annuler</button></td></tr>`).join("")}</tbody></table>`:`<p class="hint">Aucun paiement enregistré.</p>`}</div>`;
+  $("#adm").querySelectorAll("[data-pay]").forEach(b=>b.onclick=()=>{
+    const m=membre(b.dataset.pay), s=solde(m.id);
+    modal(`<h3>Paiement de ${esc(m.nom)}</h3><p class="hint">Reste dû : ${euro(s)}</p>
+      <label>Montant reçu (€)</label><input type="number" step="0.01" min="0" inputmode="decimal" id="mt" value="${Math.max(s,0).toFixed(2)}">
+      <div class="row" style="margin-top:14px"><span class="spacer"></span><button data-n>Annuler</button><button class="ok" data-y>Valider</button></div>`,
+      (el,close)=>{ el.querySelector("[data-n]").onclick=close; el.querySelector("[data-y]").onclick=()=>{
+        const v=Math.round(parseFloat(el.querySelector("#mt").value.replace(",","."))*100)/100;
+        if(!(v>0)) return toast("Montant invalide");
+        close(); adminAction("paiement",{membreId:m.id,montant:v},"Paiement de "+euro(v)+" validé"); }; });
+  });
+  $("#adm").querySelectorAll("[data-delp]").forEach(b=>b.onclick=()=>confirmBox("Annuler ce paiement ?",()=>adminAction("annulerPaiement",{paiementId:b.dataset.delp},"Paiement annulé")));
+}
+
+function moisDisponibles(){
+  const set=new Set([monthKey(Date.now()),...db.consos.map(c=>monthKey(c.ts)),...db.paiements.map(p=>monthKey(p.ts))]);
+  return [...set].sort().reverse();
+}
+function lignesMois(mk){
+  return db.membres.map(m=>({m,...moisStats(m.id,mk),solde:solde(m.id)}))
+    .filter(l=>l.m.actif||l.cafes||l.boissons||l.paye).sort((a,b)=>a.m.nom.localeCompare(b.m.nom,"fr"));
+}
+function admMois(){
+  const L=lignesMois(adminMois), T=L.reduce((t,l)=>({c:t.c+l.cafes,b:t.b+l.boissons,mt:t.mt+l.montant,p:t.p+l.paye}),{c:0,b:0,mt:0,p:0});
+  $("#adm").innerHTML=`<div class="panel">
+    <div class="row no-print" style="margin-bottom:12px"><select id="mois" style="width:auto">${moisDisponibles().map(k=>`<option value="${k}" ${k===adminMois?"selected":""}>${monthLabel(k)}</option>`).join("")}</select>
+      <span class="spacer"></span><button class="small" id="csv">Exporter CSV</button><button class="small primary" id="print">Imprimer</button></div>
+    <h2>Récapitulatif — ${monthLabel(adminMois)}</h2>
+    <table><thead><tr><th>Membre</th><th class="num">Cafés</th><th class="num">Boissons</th><th class="num">Montant du mois</th><th class="num">Payé ce mois</th><th class="num">Solde actuel</th></tr></thead><tbody>
+    ${L.map(l=>`<tr><td>${esc(l.m.nom)}</td><td class="num">${l.cafes}</td><td class="num">${l.boissons}</td><td class="num">${euro(l.montant)}</td><td class="num">${euro(l.paye)}</td><td class="num"><b>${euro(l.solde)}</b></td></tr>`).join("")}
+    <tr><th>Total</th><th class="num">${T.c}</th><th class="num">${T.b}</th><th class="num">${euro(T.mt)}</th><th class="num">${euro(T.p)}</th><th></th></tr>
+    </tbody></table><p class="hint">Édité le ${new Date().toLocaleString("fr-FR")}</p></div>`;
+  $("#mois").onchange=e=>{adminMois=e.target.value;admMois();};
+  $("#print").onclick=()=>window.print();
+  $("#csv").onclick=()=>{
+    const n=v=>v.toFixed(2).replace(".",",");
+    const rows=[["Membre","Cafés","Boissons","Montant du mois (€)","Payé ce mois (€)","Solde actuel (€)"],
+      ...L.map(l=>[l.m.nom,l.cafes,l.boissons,n(l.montant),n(l.paye),n(l.solde)]),["Total",T.c,T.b,n(T.mt),n(T.p),""]];
+    const csv="﻿"+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";")).join("\r\n");
+    download(`popotte-${adminMois}.csv`, csv, "text/csv;charset=utf-8");
+  };
+}
+function download(name, content, type){
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([content],{type})); a.download=name;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+}
+
+function admMembres(){
+  const ms=db.membres.slice().sort((a,b)=>(b.actif-a.actif)||a.nom.localeCompare(b.nom,"fr"));
+  $("#adm").innerHTML=`<div class="panel"><h2>Ajouter un membre</h2>
+    <form id="fa" class="row"><input id="nn" placeholder="Nom" style="flex:1;min-width:200px"><button class="primary">Ajouter</button></form></div>
+    <div class="panel"><h2>Membres</h2><table><tbody>${ms.map(m=>`<tr>
+      <td>${esc(m.nom)} ${m.gestionnaire?'<span class="pill pay">Gestionnaire</span>':''} ${m.actif?'':'<span class="hint">(désactivé)</span>'}</td>
+      <td class="num"><div class="row" style="justify-content:flex-end">
+        <button class="small" data-ren="${m.id}">Renommer</button>
+        <button class="small" data-gest="${m.id}">${m.gestionnaire?"Retirer gestionnaire":"Rendre gestionnaire"}</button>
+        <button class="small ${m.actif?"danger":""}" data-act="${m.id}">${m.actif?"Désactiver":"Réactiver"}</button>
+      </div></td></tr>`).join("")}</tbody></table>
+      <p class="hint">Un membre désactivé n'apparaît plus sur l'accueil, mais son historique est conservé.</p></div>`;
+  $("#fa").onsubmit=e=>{e.preventDefault();const v=$("#nn").value.trim();if(!v)return;adminAction("ajouterMembre",{nom:v},v+" ajouté");};
+  const A=$("#adm");
+  A.querySelectorAll("[data-ren]").forEach(b=>b.onclick=()=>{const m=membre(b.dataset.ren);
+    modal(`<h3>Renommer</h3><input id="rn" value="${esc(m.nom)}"><div class="row" style="margin-top:14px"><span class="spacer"></span><button data-n>Annuler</button><button class="primary" data-y>Enregistrer</button></div>`,
+      (el,close)=>{el.querySelector("[data-n]").onclick=close;el.querySelector("[data-y]").onclick=()=>{const v=el.querySelector("#rn").value.trim();close();if(v)adminAction("renommer",{membreId:m.id,nom:v});};});});
+  A.querySelectorAll("[data-gest]").forEach(b=>b.onclick=()=>adminAction("basculerGestionnaire",{membreId:b.dataset.gest}));
+  A.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>{const m=membre(b.dataset.act);
+    if(m.actif) confirmBox(`Désactiver ${esc(m.nom)} ?`,()=>adminAction("basculerActif",{membreId:m.id})); else adminAction("basculerActif",{membreId:m.id});});
+}
+
+function admReglages(){
+  $("#adm").innerHTML=`<div class="panel"><h2>Prix</h2>
+    <div class="row"><div style="flex:1"><label>Café (€)</label><input type="number" step="0.01" min="0" inputmode="decimal" id="pc" value="${db.prix.cafe}"></div>
+    <div style="flex:1"><label>Boisson (€)</label><input type="number" step="0.01" min="0" inputmode="decimal" id="pb" value="${db.prix.boisson}"></div></div>
+    <p class="hint">Un nouveau prix ne s'applique qu'aux consommations ajoutées après le changement.</p>
+    <button class="primary" id="sp">Enregistrer les prix</button></div>
+    <div class="panel"><h2>Mot de passe gestionnaire</h2>
+    <label>Nouveau mot de passe</label><input type="password" id="np1" autocomplete="new-password">
+    <label>Confirmer</label><input type="password" id="np2" autocomplete="new-password">
+    <div style="margin-top:12px"><button class="primary" id="smdp">Changer le mot de passe</button></div></div>
+    <div class="panel"><h2>Sauvegarde</h2>
+    <p class="hint">Les données sont enregistrées sur Netlify. Une sauvegarde de temps en temps (par exemple à chaque fin de mois) reste une bonne précaution.</p>
+    <div class="row"><button class="primary" id="bk">Télécharger une sauvegarde</button>
+    <button class="small" id="rsBtn" type="button">Restaurer une sauvegarde…</button><input type="file" id="rs" accept=".json,application/json" class="hidden"></div></div>`;
+  $("#sp").onclick=()=>{const c=parseFloat($("#pc").value.replace(",",".")),b=parseFloat($("#pb").value.replace(",","."));
+    if(!(c>=0)||!(b>=0))return toast("Prix invalide");adminAction("prix",{cafe:c,boisson:b},"Prix enregistrés");};
+  $("#smdp").onclick=()=>{const a=$("#np1").value,b=$("#np2").value;
+    if(a.length<4)return toast("4 caractères minimum");if(a!==b)return toast("Les deux mots de passe diffèrent");
+    action(async()=>{const d=await api("mdp",{nouveau:a});jeton=d.jeton;mdpParDefaut=false;toast("Mot de passe changé");renderAdmin();});};
+  $("#bk").onclick=()=>download(`popotte-sauvegarde-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(db,null,1),"application/json");
+  $("#rsBtn").onclick=()=>$("#rs").click();
+  $("#rs").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{
+    try{const d=JSON.parse(r.result);if(!Array.isArray(d.membres)||!Array.isArray(d.consos))throw 0;
+      confirmBox("Remplacer toutes les données actuelles par cette sauvegarde ?",()=>adminAction("restaurer",{donnees:d},"Sauvegarde restaurée"));}
+    catch(_){toast("Fichier de sauvegarde invalide");}};r.readAsText(f);};
+}
+
+/* ---------- Démarrage ---------- */
+(async function demarrer(){
+  app.innerHTML=`<p class="hint" style="text-align:center;margin-top:60px">Chargement…</p>`;
+  for(;;){
+    try{ await rafraichir(); render(); return; }
+    catch(e){ app.innerHTML=`<div class="panel" style="max-width:480px;margin:40px auto;text-align:center"><h2>Connexion impossible</h2><p class="hint">${esc(e.message)}</p><p class="hint">Nouvel essai dans 10 secondes…</p></div>`; }
+    await new Promise(r=>setTimeout(r,10000));
+  }
+})();
+</script>
+</body>
+</html>
