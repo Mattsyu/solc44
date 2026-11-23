@@ -23,6 +23,16 @@ npx netlify-cli login
 npx netlify-cli deploy --prod
 ```
 
+## Mot de passe d'accès au site (obligatoire)
+Le site demande un mot de passe dès l'ouverture, vérifié par le serveur : sans lui, aucune donnée n'est visible.
+Ce mot de passe n'est **pas** dans le code (le dépôt GitHub est public). Il se règle sur Netlify :
+1. *Project configuration* > *Environment variables* > *Add a variable*.
+2. Clé : `SITE_PASSWORD`, valeur : le mot de passe choisi.
+3. *Deploys* > *Trigger deploy* > *Deploy project* pour qu'il soit pris en compte.
+
+Chaque appareil reste déverrouillé 90 jours. Pour le reverrouiller : *Gestionnaire* > *Réglages* > « Verrouiller cette tablette ».
+Changer `SITE_PASSWORD` (puis redéployer) déverrouille tous les appareils, qui devront ressaisir le nouveau.
+
 ## Premier lancement
 - Mot de passe gestionnaire par défaut : `popotte`. Change-le tout de suite dans *Gestionnaire > Réglages*.
   Tu peux aussi définir la variable d'environnement `ADMIN_PASSWORD` sur Netlify **avant** le premier lancement.

@@ -16,6 +16,9 @@ const DEPART = {
 const PRODUITS = ["cafe", "eau", "soft"];
 // Mot de passe initial : variable d'environnement ADMIN_PASSWORD sur Netlify, sinon "popotte".
 const MDP_INITIAL = () => process.env.ADMIN_PASSWORD || "popotte";
+// Mot de passe d'accès au site : variable d'environnement SITE_PASSWORD sur Netlify (obligatoire).
+// Il n'est jamais écrit dans le code, car le dépôt GitHub est public.
+const DUREE_ACCES_MS = 90 * 24 * 60 * 60 * 1000; // une tablette déverrouillée le reste 90 jours
 const DUREE_SESSION_MS = 30 * 60 * 1000; // une connexion gestionnaire dure 30 min
 const DELAI_ANNULATION_MS = 10 * 60 * 1000; // un membre peut annuler son dernier ajout pendant 10 min
 /* ============================================================================ */
@@ -64,6 +67,26 @@ async function lireAuth(s) {
     if (!res.modified) auth = await s.get("auth", { type: "json" });
   }
   return auth;
+}
+
+// Clé des jetons d'accès : dépend du mot de passe du site, donc le changer déconnecte tous les appareils.
+async function cleAcces(s) {
+  let site = await s.get("site", { type: "json" });
+  if (!site) {
+    site = { sel: crypto.randomBytes(32).toString("hex") };
+    const res = await s.setJSON("site", site, { onlyIfNew: true });
+    if (!res.modified) site = await s.get("site", { type: "json" });
+  }
+  return crypto.createHash("sha256").update(site.sel + "\0" + process.env.SITE_PASSWORD).digest("hex");
+}
+function egal(a, b) {
+  const x = Buffer.from(String(a)), y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+function jetonAccesValide(jeton, cle) {
+  const [exp, sig] = String(jeton || "").split(".");
+  if (!exp || !sig || Number(exp) < Date.now()) return false;
+  return egal(sig, signer("acces." + exp, cle));
 }
 
 function signer(exp, secret) {
@@ -179,6 +202,25 @@ export default async (req) => {
     const s = store();
     const route = new URL(req.url).pathname.replace(/^\/api\/?/, "").replace(/\/$/, "");
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+
+    // ----- Verrou d'accès au site : rien n'est accessible sans le mot de passe du site. -----
+    if (!process.env.SITE_PASSWORD) {
+      throw new HttpError(503, "Mot de passe du site non configuré (variable SITE_PASSWORD sur Netlify).");
+    }
+    const cle = await cleAcces(s);
+    if (route === "acces" && req.method === "POST") {
+      const attendu = crypto.createHash("sha256").update(process.env.SITE_PASSWORD).digest();
+      const donne = crypto.createHash("sha256").update(String(body.motDePasse || "")).digest();
+      if (!crypto.timingSafeEqual(attendu, donne)) {
+        await new Promise((r) => setTimeout(r, 1000)); // ralentit les essais au hasard
+        throw new HttpError(401, "Mot de passe incorrect.");
+      }
+      const exp = Date.now() + DUREE_ACCES_MS;
+      return json({ acces: `${exp}.${signer("acces." + exp, cle)}` });
+    }
+    if (!jetonAccesValide(req.headers.get("x-acces"), cle)) {
+      return json({ erreur: "Accès verrouillé.", verrou: true }, 401);
+    }
 
     // État complet (lecture libre sur la tablette).
     if (route === "etat" && req.method === "GET") {

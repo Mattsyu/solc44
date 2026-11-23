@@ -119,14 +119,24 @@ const fmtDate = ts => new Date(ts).toLocaleString("fr-FR",{day:"2-digit",month:"
 
 /* ---------- Échanges avec le serveur ---------- */
 let db = null, jeton = null, mdpParDefaut = false, occupe = false;
+// Jeton d'accès au site, gardé sur cet appareil (90 jours).
+const CLE_ACCES="popotte-acces";
+let acces=null; try{ acces=localStorage.getItem(CLE_ACCES); }catch(_){}
+let verrouille=false;
+function memoriserAcces(v){ acces=v; try{ v?localStorage.setItem(CLE_ACCES,v):localStorage.removeItem(CLE_ACCES); }catch(_){} }
+class Verrou extends Error {}
+
 async function api(chemin, corps){
+  if (!acces && chemin!=="acces") { afficherVerrou(); throw new Verrou("Accès verrouillé."); }
   const opts = { method: corps ? "POST" : "GET", headers: {} };
+  if (acces) opts.headers["x-acces"] = acces;
   if (corps){ opts.headers["content-type"]="application/json"; opts.body=JSON.stringify(corps); }
   if (jeton) opts.headers.authorization = "Bearer "+jeton;
   let r;
   try { r = await fetch("/api/"+chemin, opts); }
   catch(e){ throw new Error("Pas de connexion réseau. Réessayez."); }
   const d = await r.json().catch(()=>({}));
+  if (r.status===401 && d.verrou){ memoriserAcces(null); afficherVerrou(); throw new Verrou(d.erreur); }
   if (r.status===401 && jeton && chemin!=="login"){ jeton=null; adminOk=false; }
   if (!r.ok) throw new Error(d.erreur || "Erreur "+r.status);
   if (d.etat) db = d.etat;
@@ -135,7 +145,7 @@ async function api(chemin, corps){
 // Exécute une action en évitant les doubles appuis, et affiche l'erreur éventuelle.
 async function action(fn){
   if (occupe) return; occupe=true; document.body.style.cursor="progress";
-  try { await fn(); } catch(e){ toast(e.message); if(!adminOk && location.hash==="#admin") render(); }
+  try { await fn(); } catch(e){ if(e instanceof Verrou) return; toast(e.message); if(!adminOk && location.hash==="#admin") render(); }
   finally { occupe=false; document.body.style.cursor=""; }
 }
 const admin = (op, data={}) => api("admin", {op, ...data});
@@ -186,7 +196,7 @@ $("#btnAdmin").onclick=()=>go("admin");
 
 // Rafraîchit l'écran toutes les 20 s (utile si quelqu'un consomme depuis un autre appareil).
 setInterval(async()=>{
-  if (occupe || document.hidden || document.querySelector(".modal-bg") || location.hash==="#admin" && !adminOk) return;
+  if (verrouille || occupe || document.hidden || document.querySelector(".modal-bg") || location.hash==="#admin" && !adminOk) return;
   if (document.activeElement && ["INPUT","SELECT"].includes(document.activeElement.tagName)) return;
   try {
     const avant=(db.signalements||[]).length;
@@ -195,8 +205,27 @@ setInterval(async()=>{
   } catch(_){}
 }, 20000);
 
+function afficherVerrou(){
+  verrouille=true; db=null; adminOk=false; jeton=null;
+  document.querySelectorAll(".modal-bg").forEach(x=>x.remove());
+  $("#btnHome").classList.add("hidden"); $("#btnAdmin").classList.add("hidden"); $("#hdrSub").textContent="";
+  app.innerHTML=`<div class="panel" style="max-width:420px;margin:60px auto">
+    <h2>🔒 Accès réservé</h2>
+    <form id="fv"><label for="pv">Mot de passe de la popotte</label><input type="password" id="pv" autocomplete="current-password" autofocus>
+    <div class="row" style="margin-top:14px"><span class="spacer"></span><button class="primary">Entrer</button></div></form>
+    <p class="hint">Cet appareil restera déverrouillé pendant 90 jours.</p></div>`;
+  $("#fv").onsubmit=e=>{ e.preventDefault(); action(async()=>{
+    try{
+      const d=await api("acces",{motDePasse:$("#pv").value});
+      memoriserAcces(d.acces); verrouille=false;
+      $("#btnHome").classList.remove("hidden"); $("#btnAdmin").classList.remove("hidden");
+      await rafraichir(); go("");
+    }catch(err){ const i=$("#pv"); if(i) i.value=""; throw err; }
+  }); };
+}
+
 function render(){
-  if (!db) return;
+  if (!db || verrouille) return;
   const h=location.hash.slice(1);
   $("#hdrSub").textContent = PRODUITS.map(x=>`${x.nom} ${euro(db.prix[x.k])}`).join(" · ");
   const nb=(db.signalements||[]).length;
@@ -428,6 +457,7 @@ function admReglages(){
     <div class="panel"><h2>Sauvegarde</h2>
     <p class="hint">Les données sont enregistrées sur Netlify. Une sauvegarde de temps en temps (par exemple à chaque fin de mois) reste une bonne précaution.</p>
     <div class="row"><button class="primary" id="bk">Télécharger une sauvegarde</button>
+    <button class="small" id="lockBtn" type="button">🔒 Verrouiller cette tablette</button>
     <button class="small" id="rsBtn" type="button">Restaurer une sauvegarde…</button><input type="file" id="rs" accept=".json,application/json" class="hidden"></div></div>`;
   $("#sp").onclick=()=>{const prix={};for(const i of $("#adm").querySelectorAll("[data-prix]")){const v=parseFloat(i.value.replace(",","."));if(!(v>=0))return toast("Prix invalide");prix[i.dataset.prix]=v;}
     adminAction("prix",prix,"Prix enregistrés");};
@@ -436,6 +466,7 @@ function admReglages(){
     action(async()=>{const d=await api("mdp",{nouveau:a});jeton=d.jeton;mdpParDefaut=false;toast("Mot de passe changé");renderAdmin();});};
   $("#bk").onclick=()=>download(`popotte-sauvegarde-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(db,null,1),"application/json");
   $("#rsBtn").onclick=()=>$("#rs").click();
+  $("#lockBtn").onclick=()=>confirmBox("Verrouiller cette tablette ? Il faudra ressaisir le mot de passe de la popotte.",()=>{memoriserAcces(null);afficherVerrou();});
   $("#rs").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{
     try{const d=JSON.parse(r.result);if(!Array.isArray(d.membres)||!Array.isArray(d.consos))throw 0;
       confirmBox("Remplacer toutes les données actuelles par cette sauvegarde ?",()=>adminAction("restaurer",{donnees:d},"Sauvegarde restaurée"));}
@@ -447,7 +478,7 @@ function admReglages(){
   app.innerHTML=`<p class="hint" style="text-align:center;margin-top:60px">Chargement…</p>`;
   for(;;){
     try{ await rafraichir(); render(); return; }
-    catch(e){ app.innerHTML=`<div class="panel" style="max-width:480px;margin:40px auto;text-align:center"><h2>Connexion impossible</h2><p class="hint">${esc(e.message)}</p><p class="hint">Nouvel essai dans 10 secondes…</p></div>`; }
+    catch(e){ if(e instanceof Verrou) return; app.innerHTML=`<div class="panel" style="max-width:480px;margin:40px auto;text-align:center"><h2>Connexion impossible</h2><p class="hint">${esc(e.message)}</p><p class="hint">Nouvel essai dans 10 secondes…</p></div>`; }
     await new Promise(r=>setTimeout(r,10000));
   }
 })();
