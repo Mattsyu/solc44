@@ -58,7 +58,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .tabs button.active{background:var(--brand);color:var(--brand-ink)}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:14px 22px;border-radius:14px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
 .toast.show{opacity:1}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal-bg{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
 .modal{background:var(--card);border-radius:var(--r);padding:22px;width:100%;max-width:420px}
 .modal h3{margin:0 0 8px}
 .hint{font-size:13px;color:var(--muted)}
@@ -68,6 +68,39 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .pill.soft{background:color-mix(in srgb,var(--soft) 18%,transparent);color:var(--soft)}
 .pill.pay{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
 .hidden{display:none!important}
+/* Accueil compact : toutes les tuiles tiennent dans l'écran, sans défiler */
+body.accueil{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+body.accueil main{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;padding:10px 10px 10px}
+body.accueil #app{flex:1;min-height:0;display:flex;flex-direction:column}
+.avatar{flex:none;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bg);border:2px solid var(--line);overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.avatar.init{font-size:17px;font-weight:700;color:#fff;border:0}
+.avatar.sm{width:36px;height:36px;font-size:14px}
+.home .member{flex-direction:row!important;align-items:center;justify-content:flex-start!important;gap:10px!important;min-width:0;overflow:hidden;padding:6px 10px!important}
+.home .member .txt{display:flex;flex-direction:column;min-width:0;flex:1}
+.home .member .meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow{display:flex;align-items:center;gap:10px}
+@media (min-width:600px){ .avatar:not(.sm){width:58px;height:58px} .avatar.init:not(.sm){font-size:21px} }
+@media (min-width:900px){ .avatar:not(.sm){width:72px;height:72px} .avatar.init:not(.sm){font-size:26px} }
+@media (max-width:599px){ .avatar:not(.sm){width:40px;height:40px} .avatar.init:not(.sm){font-size:15px} .home .member .due.wait{font-size:12px} .home .member .name{font-size:15px} }
+.home-title{margin:0 0 8px;font-size:16px;color:var(--muted);font-weight:600}
+.grid.home{flex:1;min-height:0;overflow-y:auto;gap:8px;grid-template-columns:repeat(2,1fr);grid-auto-rows:minmax(54px,150px);align-content:start}
+.home .member{min-height:0;padding:6px 12px;gap:0;justify-content:center;border-radius:12px}
+.home .member .name{font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.home .member .star{color:var(--brand);font-size:12px;font-weight:700;margin-left:4px}
+.home .member .due{font-size:16px;margin-top:0;line-height:1.25}
+.home .member .due.wait{font-size:14px}
+.home .member .meta{display:none}
+@media (min-width:600px){ .grid.home{grid-template-columns:repeat(3,1fr);gap:10px} }
+@media (min-width:900px){
+  .grid.home{grid-template-columns:repeat(4,1fr)}
+  .home .member .name{font-size:19px} .home .member .due{font-size:21px}
+}
+@media (min-width:900px) and (min-height:650px){ .home .member .meta{display:block;font-size:12px} }
+@media (max-width:599px){
+  header{padding:8px 12px} header h1{font-size:18px} header .sub{font-size:11px}
+  header button.small{padding:6px 9px;font-size:13px}
+}
 .member .due.wait{color:var(--warn);font-size:18px}
 .badge{display:inline-block;min-width:20px;padding:1px 6px;margin-left:6px;border-radius:99px;background:var(--danger);color:#fff;font-size:12px;font-weight:700;text-align:center}
 .payzone{border-style:dashed;margin-top:28px}
@@ -99,6 +132,8 @@ button.ok-outline{background:transparent;border:2px solid var(--ok);color:var(--
 <div class="toast" id="toast"></div>
 
 <script>
+/* Compatibilité avec les tablettes plus anciennes */
+if(!Object.fromEntries) Object.fromEntries=function(l){var o={};Array.from(l).forEach(function(e){o[e[0]]=e[1];});return o;};
 /* Les données sont stockées sur Netlify (fonction /api + Netlify Blobs).
    Les noms et prix de départ se règlent dans netlify/functions/api.mjs,
    puis dans l'espace Gestionnaire. */
@@ -148,11 +183,12 @@ async function action(fn){
   try { await fn(); } catch(e){ if(e instanceof Verrou) return; toast(e.message); if(!adminOk && location.hash==="#admin") render(); }
   finally { occupe=false; document.body.style.cursor=""; }
 }
-const admin = (op, data={}) => api("admin", {op, ...data});
+const admin = (op, data={}) => api("admin", Object.assign({op}, data));
 async function rafraichir(){ db = await api("etat"); }
 
 /* ---------- Calculs ---------- */
 const membre = id => db.membres.find(m=>m.id===id);
+const nomDe = id => { const m=membre(id); return m?m.nom:"?"; };
 const signalementDe = id => (db.signalements||[]).find(x=>x.membreId===id);
 const dernierPaiement = id => db.paiements.filter(p=>p.membreId===id).sort((a,b)=>b.ts-a.ts)[0];
 const derniereConso = id => db.consos.filter(c=>c.membreId===id).sort((a,b)=>b.ts-a.ts)[0];
@@ -206,7 +242,7 @@ setInterval(async()=>{
 }, 20000);
 
 function afficherVerrou(){
-  verrouille=true; db=null; adminOk=false; jeton=null;
+  document.body.classList.remove("accueil"); verrouille=true; db=null; adminOk=false; jeton=null;
   document.querySelectorAll(".modal-bg").forEach(x=>x.remove());
   $("#btnHome").classList.add("hidden"); $("#btnAdmin").classList.add("hidden"); $("#hdrSub").textContent="";
   app.innerHTML=`<div class="panel" style="max-width:420px;margin:60px auto">
@@ -225,6 +261,7 @@ function afficherVerrou(){
 }
 
 function render(){
+  document.body.classList.remove("accueil");
   if (!db || verrouille) return;
   const h=location.hash.slice(1);
   $("#hdrSub").textContent = PRODUITS.map(x=>`${x.nom} ${euro(db.prix[x.k])}`).join(" · ");
@@ -237,22 +274,62 @@ function render(){
 }
 
 /* ---------- Accueil ---------- */
+/* ---------- Images des membres ---------- */
+const COULEURS=["#6b4226","#1f6f8b","#a33a5c","#2e7d4f","#7b5ea7","#b3541e"];
+const cacheAvatars=new Map(); // "id:version" -> data URL
+function avatar(m, cls=""){
+  if (m.avatar){
+    const k=m.id+":"+m.avatar, img=cacheAvatars.get(k);
+    return `<span class="avatar ${cls}" data-av="${m.id}" data-v="${m.avatar}">${img?`<img src="${img}" alt="">`:""}</span>`;
+  }
+  const c=COULEURS[[...m.nom].reduce((h,ch)=>h+ch.charCodeAt(0),0)%COULEURS.length];
+  const ini=m.nom.split(/[\s-]+/).filter(Boolean).map(x=>x[0]).join("").slice(0,2).toUpperCase();
+  return `<span class="avatar init ${cls}" style="background:${c}">${esc(ini)}</span>`;
+}
+async function chargerAvatars(){
+  for (const el of document.querySelectorAll("[data-av]")){
+    if (el.querySelector("img")) continue;
+    const k=el.dataset.av+":"+el.dataset.v;
+    let img=cacheAvatars.get(k);
+    if(!img){ try{ img=localStorage.getItem("av:"+k); }catch(_){} }
+    if(!img){
+      try{ img=(await api("avatar?id="+encodeURIComponent(el.dataset.av))).image; }catch(_){ continue; }
+      try{ localStorage.setItem("av:"+k,img); }catch(_){}
+    }
+    cacheAvatars.set(k,img);
+    document.querySelectorAll(`[data-av="${el.dataset.av}"][data-v="${el.dataset.v}"]`).forEach(x=>{ if(!x.querySelector("img")) x.innerHTML=`<img src="${img}" alt="">`; });
+  }
+}
+// Recadre l'image en carré 256 px (JPEG) pour qu'elle reste légère.
+function preparerImage(fichier){
+  return new Promise((ok,ko)=>{
+    const url=URL.createObjectURL(fichier), im=new Image();
+    im.onload=()=>{ const t=256, c=document.createElement("canvas"); c.width=c.height=t;
+      const cote=Math.min(im.width,im.height), x=(im.width-cote)/2, y=(im.height-cote)/2;
+      const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,t,t); g.drawImage(im,x,y,cote,cote,0,0,t,t);
+      URL.revokeObjectURL(url); ok(c.toDataURL("image/jpeg",0.85)); };
+    im.onerror=()=>{ URL.revokeObjectURL(url); ko(new Error("Image illisible")); };
+    im.src=url;
+  });
+}
+
 function renderHome(){
+  document.body.classList.add("accueil");
   const ms = db.membres.filter(m=>m.actif).sort((a,b)=>a.nom.localeCompare(b.nom,"fr"));
   app.innerHTML = `
-    <div class="row" style="margin-bottom:14px"><h2 style="margin:0">Touchez votre nom</h2></div>
-    <div class="grid">${ms.map(m=>{
+    <h2 class="home-title">Touchez votre nom</h2>
+    <div class="grid home">${ms.map(m=>{
       const s=solde(m.id), mk=monthKey(Date.now()), st=moisStats(m.id,mk);
-      return `<button class="member" data-id="${m.id}">
-        ${m.gestionnaire?'<span class="tag">Gestionnaire</span>':''}
-        <span class="name">${esc(m.nom)}</span>
+      return `<button class="member" data-id="${m.id}">${avatar(m)}<span class="txt">
+        <span class="name">${esc(m.nom)}${m.gestionnaire?'<span class="star" title="Gestionnaire">GEST.</span>':''}</span>
         <span class="meta">Ce mois : ${PRODUITS.map(x=>`${st.n[x.k]} ${x.nom.toLowerCase()}`).join(" · ")}</span>
-        ${signalementDe(m.id)?`<span class="due wait">⏳ Paiement signalé<br><small style="font-weight:500">en attente de confirmation</small></span>`
+        ${signalementDe(m.id)?`<span class="due wait">⏳ Paiement signalé</span>`
           : regle(m.id)?`<span class="due zero">Payé ✓</span>`
           : `<span class="due ${s<=0?"zero":""}">${s<=0?(s<0?"Avance "+euro(-s):"À jour"):euro(s)}</span>`}
-      </button>`;}).join("")}
+      </span></button>`;}).join("")}
     </div>`;
   app.querySelectorAll(".member").forEach(b=>b.onclick=()=>go("m/"+b.dataset.id));
+  chargerAvatars();
 }
 
 /* ---------- Compte membre ---------- */
@@ -260,8 +337,8 @@ function renderMembre(id){
   const m=membre(id); if(!m) return go("");
   const s=solde(id), mk=monthKey(Date.now()), st=moisStats(id,mk);
   const hist=[
-    ...db.consos.filter(c=>c.membreId===id).map(c=>({...c,k:"c"})),
-    ...db.paiements.filter(p=>p.membreId===id).map(p=>({...p,k:"p"}))
+    ...db.consos.filter(c=>c.membreId===id).map(c=>Object.assign({},c,{k:"c"})),
+    ...db.paiements.filter(p=>p.membreId===id).map(p=>Object.assign({},p,{k:"p"}))
   ].sort((a,b)=>b.ts-a.ts).slice(0,15);
   const last = db.consos.filter(c=>c.membreId===id).sort((a,b)=>b.ts-a.ts)[0];
   const annulable = last && Date.now()-last.ts < 10*60*1000;
@@ -277,17 +354,17 @@ function renderMembre(id){
         ${PRODUITS.map(x=>`<div class="stat"><div class="v">${st.n[x.k]}</div><div class="l">${x.pl} ce mois</div></div>`).join("")}
         <div class="stat"><div class="v">${euro(totalConso(id))}</div><div class="l">Total consommé depuis le début</div></div>
       </div>
-      ${annulable?`<div class="row" style="margin-top:14px"><button class="small" id="undo">↩ Annuler mon dernier ajout (${(P[last.type]?.nom||last.type).toLowerCase()} de ${fmtDate(last.ts)})</button></div>`:""}
+      ${annulable?`<div class="row" style="margin-top:14px"><button class="small" id="undo">↩ Annuler mon dernier ajout (${((P[last.type]&&P[last.type].nom)||last.type).toLowerCase()} de ${fmtDate(last.ts)})</button></div>`:""}
     </div>
     ${zonePaiement(id)}
     <div class="panel">
       <h2>Derniers mouvements</h2>
-      ${hist.length?`<table><tbody>${hist.map(x=>`<tr><td>${fmtDate(x.ts)}</td><td>${x.k==="c"?`<span class="pill ${x.type}">${P[x.type]?.nom||x.type}</span>`:`<span class="pill pay">Paiement</span>`}</td><td class="num">${x.k==="c"?euro(x.prix):"− "+euro(x.montant)}</td></tr>`).join("")}</tbody></table>`:`<p class="hint">Aucun mouvement pour l'instant.</p>`}
+      ${hist.length?`<table><tbody>${hist.map(x=>`<tr><td>${fmtDate(x.ts)}</td><td>${x.k==="c"?`<span class="pill ${x.type}">${(P[x.type]&&P[x.type].nom)||x.type}</span>`:`<span class="pill pay">Paiement</span>`}</td><td class="num">${x.k==="c"?euro(x.prix):"− "+euro(x.montant)}</td></tr>`).join("")}</tbody></table>`:`<p class="hint">Aucun mouvement pour l'instant.</p>`}
     </div>`;
   $("#back").onclick=()=>go("");
   const add=type=>action(async()=>{ await api("conso",{membreId:id,type}); toast(P[type].emoji+" "+P[type].ajoute+" pour "+m.nom); renderMembre(id); });
   app.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>add(b.dataset.add));
-  $("#jaipaye")?.addEventListener("click",()=>{
+  if($("#jaipaye")) $("#jaipaye").addEventListener("click",()=>{
     modal(`<h3>Signaler un paiement</h3><p>Le gestionnaire recevra une notification et confirmera quand il aura bien reçu l'argent.</p>
       <label>Montant payé (€)</label><input type="number" step="0.01" min="0" inputmode="decimal" id="mt" value="${Math.max(s,0).toFixed(2)}">
       <div class="row" style="margin-top:14px"><span class="spacer"></span><button data-n>Annuler</button><button class="ok" data-y>Envoyer</button></div>`,
@@ -296,7 +373,7 @@ function renderMembre(id){
         if(!(v>0)) return toast("Montant invalide");
         close(); action(async()=>{ await api("signaler",{membreId:id,montant:v}); toast("Paiement signalé au gestionnaire"); render(); }); }; });
   });
-  $("#annulSig")?.addEventListener("click",()=>{ const sg=signalementDe(id);
+  if($("#annulSig")) $("#annulSig").addEventListener("click",()=>{ const sg=signalementDe(id);
     confirmBox("Annuler ton signalement de paiement ?",()=>action(async()=>{ await api("annulerSignalement",{membreId:id,signalementId:sg.id}); toast("Signalement annulé"); render(); })); });
   if(annulable) $("#undo").onclick=()=>action(async()=>{ await api("annuler",{membreId:id,consoId:last.id}); toast("Dernier ajout annulé"); renderMembre(id); });
 }
@@ -322,7 +399,7 @@ function renderLogin(){
     <div class="row" style="margin-top:14px"><span class="spacer"></span><button class="primary">Se connecter</button></div></form>
     <p class="hint hidden" id="defHint">Mot de passe par défaut : <b>popotte</b>. Changez-le dans l'onglet Réglages.</p>
   </div>`;
-  api("info").then(d=>{ if(d.mdpParDefaut) $("#defHint")?.classList.remove("hidden"); }).catch(()=>{});
+  api("info").then(d=>{ if(d.mdpParDefaut) $("#defHint")&&$("#defHint").classList.remove("hidden"); }).catch(()=>{});
   $("#f").onsubmit=e=>{ e.preventDefault(); action(async()=>{
     try{
       const d=await api("login",{motDePasse:$("#pw").value});
@@ -344,7 +421,7 @@ function renderAdmin(){
   $("#logout").onclick=()=>{adminOk=false;jeton=null;go("");};
   app.querySelectorAll("[data-conf]").forEach(b=>b.onclick=()=>{
     const sg=db.signalements.find(x=>x.id===b.dataset.conf); if(!sg) return;
-    modal(`<h3>Confirmer le paiement de ${esc(membre(sg.membreId)?.nom||"?")}</h3><p class="hint">Montant signalé : ${euro(sg.montant)}. Corrige-le si tu as reçu une autre somme.</p>
+    modal(`<h3>Confirmer le paiement de ${esc(nomDe(sg.membreId))}</h3><p class="hint">Montant signalé : ${euro(sg.montant)}. Corrige-le si tu as reçu une autre somme.</p>
       <label>Montant reçu (€)</label><input type="number" step="0.01" min="0" inputmode="decimal" id="mt" value="${sg.montant.toFixed(2)}">
       <div class="row" style="margin-top:14px"><span class="spacer"></span><button data-n>Annuler</button><button class="ok" data-y>Confirmer</button></div>`,
       (el,close)=>{ el.querySelector("[data-n]").onclick=close; el.querySelector("[data-y]").onclick=()=>{
@@ -360,7 +437,7 @@ function notifSignalements(){
   const L=(db.signalements||[]).slice().sort((a,b)=>a.ts-b.ts);
   if(!L.length) return "";
   return `<div class="panel notif no-print"><h2>🔔 ${L.length} paiement${L.length>1?"s":""} signalé${L.length>1?"s":""} à confirmer</h2><ul>
-    ${L.map(sg=>{const m=membre(sg.membreId);return `<li><b>${esc(m?.nom||"?")}</b><span>${euro(sg.montant)}</span><span class="hint">le ${fmtDate(sg.ts)} · reste dû ${euro(solde(sg.membreId))}</span>
+    ${L.map(sg=>{const m=membre(sg.membreId);return `<li><b>${esc(m?m.nom:"?")}</b><span>${euro(sg.montant)}</span><span class="hint">le ${fmtDate(sg.ts)} · reste dû ${euro(solde(sg.membreId))}</span>
       <span class="spacer"></span><button class="small" data-refus="${sg.id}">Refuser</button><button class="small ok" data-conf="${sg.id}">Confirmer</button></li>`;}).join("")}
   </ul></div>`;
 }
@@ -376,7 +453,7 @@ function admSoldes(){
       <td class="num" style="font-weight:700;color:${s>0?"var(--warn)":"var(--ok)"}">${euro(s)}</td>
       <td class="num"><button class="small ok" data-pay="${m.id}">Valider un paiement</button></td></tr>`;}).join("")}
     </tbody></table></div>
-    <div class="panel"><h2>Derniers paiements validés</h2>${recents.length?`<table><tbody>${recents.map(p=>`<tr><td>${fmtDate(p.ts)}</td><td>${esc(membre(p.membreId)?.nom||"?")}</td><td class="num">${euro(p.montant)}</td><td class="num"><button class="small" data-delp="${p.id}">Annuler</button></td></tr>`).join("")}</tbody></table>`:`<p class="hint">Aucun paiement enregistré.</p>`}</div>`;
+    <div class="panel"><h2>Derniers paiements validés</h2>${recents.length?`<table><tbody>${recents.map(p=>`<tr><td>${fmtDate(p.ts)}</td><td>${esc(nomDe(p.membreId))}</td><td class="num">${euro(p.montant)}</td><td class="num"><button class="small" data-delp="${p.id}">Annuler</button></td></tr>`).join("")}</tbody></table>`:`<p class="hint">Aucun paiement enregistré.</p>`}</div>`;
   $("#adm").querySelectorAll("[data-pay]").forEach(b=>b.onclick=()=>{
     const m=membre(b.dataset.pay), s=solde(m.id);
     modal(`<h3>Paiement de ${esc(m.nom)}</h3><p class="hint">Reste dû : ${euro(s)}</p>
@@ -395,7 +472,7 @@ function moisDisponibles(){
   return [...set].sort().reverse();
 }
 function lignesMois(mk){
-  return db.membres.map(m=>({m,...moisStats(m.id,mk),solde:solde(m.id)}))
+  return db.membres.map(m=>Object.assign({m},moisStats(m.id,mk),{solde:solde(m.id)}))
     .filter(l=>l.m.actif||l.montant||l.paye).sort((a,b)=>a.m.nom.localeCompare(b.m.nom,"fr"));
 }
 function admMois(){
@@ -428,18 +505,28 @@ function admMembres(){
   $("#adm").innerHTML=`<div class="panel"><h2>Ajouter un membre</h2>
     <form id="fa" class="row"><input id="nn" placeholder="Nom" style="flex:1;min-width:200px"><button class="primary">Ajouter</button></form></div>
     <div class="panel"><h2>Membres</h2><table><tbody>${ms.map(m=>`<tr>
-      <td>${esc(m.nom)} ${m.gestionnaire?'<span class="pill pay">Gestionnaire</span>':''} ${m.actif?'':'<span class="hint">(désactivé)</span>'}</td>
+      <td><span class="mrow">${avatar(m,"sm")}<span>${esc(m.nom)}</span></span> ${m.gestionnaire?'<span class="pill pay">Gestionnaire</span>':''} ${m.actif?'':'<span class="hint">(désactivé)</span>'}</td>
       <td class="num"><div class="row" style="justify-content:flex-end">
+        <button class="small" data-img="${m.id}">🖼 Changer l'image</button>
+        ${m.avatar?`<button class="small" data-noimg="${m.id}">Retirer l'image</button>`:""}
         <button class="small" data-ren="${m.id}">Renommer</button>
         <button class="small" data-gest="${m.id}">${m.gestionnaire?"Retirer gestionnaire":"Rendre gestionnaire"}</button>
         <button class="small ${m.actif?"danger":""}" data-act="${m.id}">${m.actif?"Désactiver":"Réactiver"}</button>
       </div></td></tr>`).join("")}</tbody></table>
-      <p class="hint">Un membre désactivé n'apparaît plus sur l'accueil, mais son historique est conservé.</p></div>`;
+      <p class="hint">Un membre désactivé n'apparaît plus sur l'accueil, mais son historique est conservé.</p>
+      <p class="hint">Les images sont recadrées automatiquement en carré. Sans image, la tuile affiche les initiales.</p>
+      <input type="file" id="imgIn" accept="image/*" class="hidden"></div>`;
+  chargerAvatars();
+  let cible=null;
+  $("#imgIn").onchange=async e=>{ const f=e.target.files[0]; e.target.value=""; if(!f||!cible) return;
+    try{ const image=await preparerImage(f); adminAction("avatar",{membreId:cible,image},"Image enregistrée"); }catch(err){ toast(err.message); } };
   $("#fa").onsubmit=e=>{e.preventDefault();const v=$("#nn").value.trim();if(!v)return;adminAction("ajouterMembre",{nom:v},v+" ajouté");};
   const A=$("#adm");
   A.querySelectorAll("[data-ren]").forEach(b=>b.onclick=()=>{const m=membre(b.dataset.ren);
     modal(`<h3>Renommer</h3><input id="rn" value="${esc(m.nom)}"><div class="row" style="margin-top:14px"><span class="spacer"></span><button data-n>Annuler</button><button class="primary" data-y>Enregistrer</button></div>`,
       (el,close)=>{el.querySelector("[data-n]").onclick=close;el.querySelector("[data-y]").onclick=()=>{const v=el.querySelector("#rn").value.trim();close();if(v)adminAction("renommer",{membreId:m.id,nom:v});};});});
+  A.querySelectorAll("[data-img]").forEach(b=>b.onclick=()=>{ cible=b.dataset.img; $("#imgIn").click(); });
+  A.querySelectorAll("[data-noimg]").forEach(b=>b.onclick=()=>confirmBox(`Retirer l'image de ${esc(membre(b.dataset.noimg).nom)} ?`,()=>adminAction("retirerAvatar",{membreId:b.dataset.noimg},"Image retirée")));
   A.querySelectorAll("[data-gest]").forEach(b=>b.onclick=()=>adminAction("basculerGestionnaire",{membreId:b.dataset.gest}));
   A.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>{const m=membre(b.dataset.act);
     if(m.actif) confirmBox(`Désactiver ${esc(m.nom)} ?`,()=>adminAction("basculerActif",{membreId:m.id})); else adminAction("basculerActif",{membreId:m.id});});
@@ -447,7 +534,7 @@ function admMembres(){
 
 function admReglages(){
   $("#adm").innerHTML=`<div class="panel"><h2>Prix</h2>
-    <div class="row">${PRODUITS.map(x=>`<div style="flex:1;min-width:140px"><label>${x.nom} (€)</label><input type="number" step="0.01" min="0" inputmode="decimal" data-prix="${x.k}" value="${db.prix[x.k]??""}"></div>`).join("")}</div>
+    <div class="row">${PRODUITS.map(x=>`<div style="flex:1;min-width:140px"><label>${x.nom} (€)</label><input type="number" step="0.01" min="0" inputmode="decimal" data-prix="${x.k}" value="${db.prix[x.k]!=null?db.prix[x.k]:""}"></div>`).join("")}</div>
     <p class="hint">Un nouveau prix ne s'applique qu'aux consommations ajoutées après le changement.</p>
     <button class="primary" id="sp">Enregistrer les prix</button></div>
     <div class="panel"><h2>Mot de passe gestionnaire</h2>

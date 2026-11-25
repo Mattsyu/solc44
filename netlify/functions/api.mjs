@@ -165,6 +165,12 @@ const OPS_ADMIN = {
   refuserSignalement(d, b) {
     d.signalements = d.signalements.filter((x) => x.id !== b.signalementId);
   },
+  avatar(d, b) {
+    trouverMembre(d, b.membreId).avatar = Date.now();
+  },
+  retirerAvatar(d, b) {
+    delete trouverMembre(d, b.membreId).avatar;
+  },
   annulerPaiement(d, b) {
     d.paiements = d.paiements.filter((p) => p.id !== b.paiementId);
   },
@@ -276,6 +282,16 @@ export default async (req) => {
 
     const auth = await lireAuth(s);
 
+    // Image d'un membre (lecture réservée aux appareils déverrouillés).
+    if (route === "avatar" && req.method === "GET") {
+      const id = new URL(req.url).searchParams.get("id") || "";
+      const image = await s.get("avatar/" + id.replace(/[^a-z0-9]/gi, ""), { type: "text" });
+      if (!image) throw new HttpError(404, "Pas d'image.");
+      return new Response(JSON.stringify({ image }), {
+        headers: { "content-type": "application/json; charset=utf-8", "cache-control": "private, max-age=31536000, immutable" },
+      });
+    }
+
     if (route === "info" && req.method === "GET") {
       return json({ mdpParDefaut: !!auth.parDefaut });
     }
@@ -306,6 +322,16 @@ export default async (req) => {
     if (route === "admin" && req.method === "POST") {
       const op = OPS_ADMIN[body.op];
       if (!op) throw new HttpError(400, "Opération inconnue.");
+      // Images : le fichier est rangé à part, la fiche du membre garde juste un numéro de version.
+      if (body.op === "avatar") {
+        const { data: d0 } = await lireDonnees(s);
+        trouverMembre(d0, body.membreId);
+        const img = String(body.image || "");
+        if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(img) || img.length > 600000)
+          throw new HttpError(400, "Image invalide ou trop lourde.");
+        await s.set("avatar/" + body.membreId, img);
+      }
+      if (body.op === "retirerAvatar") await s.delete("avatar/" + String(body.membreId || "").replace(/[^a-z0-9]/gi, ""));
       const { data } = await modifier(s, (d) => op(d, body));
       return json({ etat: data });
     }
