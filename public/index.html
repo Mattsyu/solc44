@@ -134,8 +134,8 @@ button.ok-outline{background:transparent;border:2px solid var(--ok);color:var(--
 <script>
 /* Compatibilité avec les tablettes plus anciennes */
 if(!Object.fromEntries) Object.fromEntries=function(l){var o={};Array.from(l).forEach(function(e){o[e[0]]=e[1];});return o;};
-/* Les données sont stockées sur Netlify (fonction /api + Netlify Blobs).
-   Les noms et prix de départ se règlent dans netlify/functions/api.mjs,
+/* Les données sont stockées sur Cloudflare (fonction /api + base D1).
+   Les noms et prix de départ se règlent dans functions/api/[[path]].js,
    puis dans l'espace Gestionnaire. */
 
 const $ = s => document.querySelector(s);
@@ -542,10 +542,14 @@ function admReglages(){
     <label>Confirmer</label><input type="password" id="np2" autocomplete="new-password">
     <div style="margin-top:12px"><button class="primary" id="smdp">Changer le mot de passe</button></div></div>
     <div class="panel"><h2>Sauvegarde</h2>
-    <p class="hint">Les données sont enregistrées sur Netlify. Une sauvegarde de temps en temps (par exemple à chaque fin de mois) reste une bonne précaution.</p>
+    <p class="hint">Les données sont enregistrées sur Cloudflare. Une sauvegarde de temps en temps (par exemple à chaque fin de mois) reste une bonne précaution.</p>
     <div class="row"><button class="primary" id="bk">Télécharger une sauvegarde</button>
     <button class="small" id="lockBtn" type="button">🔒 Verrouiller cette tablette</button>
-    <button class="small" id="rsBtn" type="button">Restaurer une sauvegarde…</button><input type="file" id="rs" accept=".json,application/json" class="hidden"></div></div>`;
+    <button class="small" id="rsBtn" type="button">Restaurer une sauvegarde…</button><input type="file" id="rs" accept=".json,application/json" class="hidden"></div></div>
+    <div class="panel"><h2>Récupérer les données de l'ancien site</h2>
+    <p class="hint">À faire une seule fois : copie ici les membres, les consommations, les paiements et les images de l'ancien site (solc44.netlify.app). Les données actuelles de ce site seront remplacées.</p>
+    <label>Mot de passe d'accès de l'ancien site</label><input type="password" id="oldPw" autocomplete="off">
+    <div style="margin-top:12px"><button class="primary" id="impBtn">Récupérer les données</button></div></div>`;
   $("#sp").onclick=()=>{const prix={};for(const i of $("#adm").querySelectorAll("[data-prix]")){const v=parseFloat(i.value.replace(",","."));if(!(v>=0))return toast("Prix invalide");prix[i.dataset.prix]=v;}
     adminAction("prix",prix,"Prix enregistrés");};
   $("#smdp").onclick=()=>{const a=$("#np1").value,b=$("#np2").value;
@@ -553,6 +557,8 @@ function admReglages(){
     action(async()=>{const d=await api("mdp",{nouveau:a});jeton=d.jeton;mdpParDefaut=false;toast("Mot de passe changé");renderAdmin();});};
   $("#bk").onclick=()=>download(`popotte-sauvegarde-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(db,null,1),"application/json");
   $("#rsBtn").onclick=()=>$("#rs").click();
+  $("#impBtn").onclick=()=>{const pw=$("#oldPw").value;if(!pw)return toast("Saisis le mot de passe de l'ancien site");
+    confirmBox("Remplacer toutes les données de ce site par celles de l'ancien site ?",()=>{toast("Récupération en cours…");adminAction("importerAncienSite",{motDePasse:pw},"Données récupérées ✓");});};
   $("#lockBtn").onclick=()=>confirmBox("Verrouiller cette tablette ? Il faudra ressaisir le mot de passe de la popotte.",()=>{memoriserAcces(null);afficherVerrou();});
   $("#rs").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{
     try{const d=JSON.parse(r.result);if(!Array.isArray(d.membres)||!Array.isArray(d.consos))throw 0;
