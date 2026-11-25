@@ -42,3 +42,6 @@ Changer `SITE_PASSWORD` (puis redéployer) déverrouille tous les appareils, qui
 
 ## Bouton « J'ai payé »
 Sur son écran, un membre qui doit de l'argent peut appuyer sur « J'ai payé ». Le gestionnaire voit alors une pastille rouge sur le bouton « Gestionnaire » et une notification en haut de son espace. Il confirme (en corrigeant le montant si besoin) ou refuse. Une fois le paiement confirmé, la tuile du membre affiche « Payé ✓ ».
+
+## Images des membres
+*Gestionnaire* > *Membres* > « 🖼 Changer l'image » : choisis une photo sur l'appareil, elle est recadrée en carré et enregistrée sur Netlify. Sans image, la tuile affiche les initiales.
