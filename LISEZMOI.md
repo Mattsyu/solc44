@@ -8,7 +8,12 @@ Page tablette pour gérer la popotte café et boissons. Le site est hébergé gr
 
 Il n'y a rien à compiler : Cloudflare publie le dossier `public` et la fonction à chaque modification de la branche `main`.
 
-## Mise en place sur Cloudflare (une seule fois)
+## Hébergement actuel : Worker Cloudflare « popotte »
+Le site tourne comme **Worker** Cloudflare nommé `popotte` (fichiers `worker.js` et `wrangler.jsonc`, base D1 `popotte` reliée sous le nom `DB`).
+Le Worker est relié au dépôt GitHub (*Settings* > *Build*) : chaque modification de `main` est déployée automatiquement.
+`SITE_PASSWORD` se règle dans *Settings* > *Variables and Secrets*, en type *Secret*.
+
+## Ancienne méthode : Cloudflare Pages (une seule fois)
 1. Crée un compte sur dash.cloudflare.com et valide ton adresse e-mail.
 2. **Base de données** : menu *Storage & databases* > *D1 SQL database* > *Create database*, nom `popotte`, puis *Create*.
 3. **Site** : menu *Workers & Pages* > *Create application* > onglet ou lien *Pages* > *Import an existing Git repository*. Relie ton compte GitHub, choisis le dépôt `solc44`, puis *Begin setup*.
